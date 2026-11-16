@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FF-KARAOKE</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#000;color:#f4eef1;font-family:"Segoe UI",Arial,sans-serif;min-height:100vh}
+#bgl{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;font-size:22vw;font-weight:900;line-height:.9;color:#ff4f93;opacity:.07;pointer-events:none}
+main{position:relative;max-width:460px;margin:0 auto;padding:18px}
+h1{color:#FFD400;text-align:center;font-size:24px;margin:8px 0 18px}h2{color:#ff4f93;margin:0 0 10px}
+section{display:none;background:rgba(20,16,20,.88);border:1px solid #3a2430;border-radius:12px;padding:16px}
+label{display:block;margin:10px 0 4px;font-size:14px}
+input[type=text],input[type=tel]{width:100%;padding:12px;font-size:17px;border-radius:8px;border:1px solid #3a2430;background:#000;color:#fff}
+button{width:100%;margin-top:12px;padding:13px;font-size:17px;font-weight:700;border:0;border-radius:8px;background:#ff4f93;color:#000}
+button.s{background:#222;color:#fff;border:1px solid #3a2430}
+.big{font-size:20px;font-weight:800;color:#FFD400;text-align:center;line-height:1.35}.msg{color:#ff4f93;font-weight:700;margin-bottom:10px}
+.rd label{display:inline-block;margin-right:18px}
+</style></head><body>
+<div id="bgl">FF<br>KARAOKE</div>
+<main><h1 id="est">FF-KARAOKE</h1>
+<section id="s0"><div class="big">Leia o QR code do estabelecimento para pedir a sua música.</div></section>
+<section id="s1"><h2>Registo</h2>
+<label>Nome</label><input type="text" id="nome" autocomplete="off">
+<label>Telefone</label><input type="tel" id="tel" autocomplete="off">
+<label>Selfie (opcional)</label><input type="file" id="selfie" accept="image/*" capture="user">
+<button id="b1">Continuar</button></section>
+<section id="s2"><h2 id="ola"></h2><div class="msg" id="aviso"></div>
+<label>Música / cantor que quer cantar</label><input type="text" id="mus" autocomplete="off">
+<label>Quer trocar a sua foto antes de enviar o pedido?</label>
+<div class="rd"><label><input type="radio" name="tf" value="s"> Sim</label><label><input type="radio" name="tf" value="n" checked> Não</label></div>
+<input type="file" id="foto2" accept="image/*" capture="user" style="display:none;margin-top:8px">
+<button id="b2">Enviar pedido</button><button class="s" id="b3">Sair do perfil</button></section>
+<section id="s3"><div class="big" id="st"></div><div class="big" id="pos"></div><button class="s" id="b4">Anular pedido</button></section>
+</main>
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)},P=new URLSearchParams(location.hash.slice(1)),C=P.get('c'),K=P.get('k'),B=(P.get('n')||'https://ntfy.sh').replace(/\/+$/,''),me={},foto='',es=null,PK={name:'ECDH',namedCurve:'P-256'};
+$('est').textContent=P.get('e')||'FF-KARAOKE';
+var SK='ffkc_'+C;
+function getA(){try{return JSON.parse(localStorage.getItem(SK))}catch(e){return null}}
+function setA(a){try{a?localStorage.setItem(SK,JSON.stringify(a)):localStorage.removeItem(SK)}catch(e){}}
+function show(n){['s0','s1','s2','s3'].forEach(function(i){$(i).style.display=i===n?'block':'none'})}
+function b64u(buf){var s='',a=new Uint8Array(buf),i;for(i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function unb64u(t){t=t.replace(/-/g,'+').replace(/_/g,'/');while(t.length%4)t+='=';var s=atob(t),a=new Uint8Array(s.length),i;for(i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a}
+function rnd(n){var a=new Uint8Array(n),s='',i,c='abcdefghijkmnpqrstuvwxyz23456789';crypto.getRandomValues(a);for(i=0;i<n;i++)s+=c[a[i]%c.length];return s}
+function enc(o){
+  var kp,ek;
+  return crypto.subtle.generateKey(PK,true,['deriveKey']).then(function(k){kp=k;
+    return Promise.all([crypto.subtle.exportKey('raw',k.publicKey),crypto.subtle.importKey('raw',unb64u(K),PK,false,[])])}).then(function(r){ek=b64u(r[0]);
+    return crypto.subtle.deriveKey({name:'ECDH',public:r[1]},kp.privateKey,{name:'AES-GCM',length:256},false,['encrypt'])}).then(function(k){
+    var iv=crypto.getRandomValues(new Uint8Array(12));
+    return crypto.subtle.encrypt({name:'AES-GCM',iv:iv},k,new TextEncoder().encode(JSON.stringify(o))).then(function(c){return{ek:ek,iv:b64u(iv),ct:b64u(c)}})});
+}
+function send(t,m){return fetch(B+'/'+t,{method:'POST',body:JSON.stringify(m)})}
+function readFoto(f,cb){var im=new Image(),u=URL.createObjectURL(f);im.onload=function(){var c=document.createElement('canvas');c.height=140;c.width=Math.max(1,Math.round(im.width*140/im.height));c.getContext('2d').drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);cb(c.toDataURL('image/jpeg',.6))};im.src=u}
+function render(){
+  var a=getA();
+  if(!a){show(me.nome?'s2':'s1');return}
+  show('s3');
+  if(a.st==='ok'){$('st').textContent=a.pos===0?'É A SUA VEZ!':'PEDIDO CONFIRMADO';$('pos').textContent=a.pos===0?'':(a.pos>0?'Lugar na fila: '+a.pos:'')}
+  else{$('st').textContent='O SEU PEDIDO FOI ENVIADO COM SUCESSO, MAS NEM TODAS AS MÚSICAS EXISTEM EM KARAOKE. AGUARDE PELA CONFIRMAÇÃO.';$('pos').textContent=''}
+}
+function aviso(t){$('aviso').textContent=t}
+function sub(){
+  var a=getA();if(!a||!window.EventSource)return;if(es)es.close();
+  es=new EventSource(B+'/'+a.r+'/sse');
+  es.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.event==='message')hand(JSON.parse(d.message))}catch(x){}});
+}
+function hand(m){
+  var a=getA();if(!a)return;
+  if(m.t==='ok'){a.st='ok';setA(a)}
+  else if(m.t==='pos'){var was=a.pos;a.pos=m.n;a.st='ok';setA(a);if(m.n===0&&was!==0&&navigator.vibrate)navigator.vibrate([300,150,300,150,500])}
+  else if(m.t==='no'){setA(null);aviso('O seu pedido não foi aceite (essa música pode não existir em karaoke). Pode pedir outra música.')}
+  else if(m.t==='dup'){setA(null);aviso('Já existe um pedido ativo para este telefone.')}
+  else if(m.t==='done'){setA(null);aviso('Obrigado por cantar! Pode fazer um novo pedido.')}
+  render();
+}
+$('b1').onclick=function(){
+  var n=$('nome').value.trim(),t=$('tel').value.replace(/\D/g,'');
+  if(!n||t.length<9)return alert('Escreva o seu nome e um telefone válido.');
+  me={nome:n,tel:t};$('ola').textContent='Olá, '+n;
+  var f=$('selfie').files[0];if(f)readFoto(f,function(d){foto=d});
+  aviso('');render();
+};
+document.querySelectorAll('[name=tf]').forEach(function(r){r.onchange=function(){$('foto2').style.display=this.value==='s'?'block':'none'}});
+$('foto2').onchange=function(){var f=this.files[0];if(f)readFoto(f,function(d){foto=d})};
+$('b3').onclick=function(){me={};foto='';$('nome').value='';$('tel').value='';$('selfie').value='';render()};
+$('b2').onclick=function(){
+  var m=$('mus').value.trim();if(!m)return alert('Escreva a música que quer cantar.');
+  var id=rnd(12),r='r'+rnd(18),ch=Promise.resolve(),b=this;b.disabled=true;
+  if(foto){var f=foto;ch=enc({tel:me.tel,foto:f}).then(function(e){var n=Math.ceil(e.ct.length/2500),ps=[],i;for(i=0;i<n;i++)ps.push(send(C,{t:'f',id:id,ek:e.ek,iv:e.iv,n:n,i:i,d:e.ct.slice(i*2500,(i+1)*2500)}));return Promise.all(ps)}).then(function(){foto=''})}
+  ch.then(function(){return enc({nome:me.nome,tel:me.tel,musica:m,r:r})}).then(function(e){return send(C,{t:'p',id:id,ek:e.ek,iv:e.iv,ct:e.ct})}).then(function(){
+    $('mus').value='';setA({id:id,r:r,st:'wait',nome:me.nome});aviso('');sub();render();b.disabled=false
+  }).catch(function(){b.disabled=false;alert('Não foi possível enviar. Verifique a ligação à internet e tente de novo.')});
+};
+$('b4').onclick=function(){
+  var a=getA();if(!a)return;
+  enc({r:a.r,nome:a.nome}).then(function(e){return send(C,{t:'a',id:a.id,ek:e.ek,iv:e.iv,ct:e.ct})}).then(function(){if(es)es.close();setA(null);aviso('Pedido anulado. Pode fazer outro.');render()}).catch(function(){alert('Não foi possível anular. Tente de novo.')});
+};
+if(!C||!K)show('s0');else{if(getA())sub();render()}
+})();
+</script></body></html>
