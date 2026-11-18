@@ -34,8 +34,8 @@ button.s{background:#222;color:#fff;border:1px solid #3a2430}
 var $=function(i){return document.getElementById(i)},P=new URLSearchParams(location.hash.slice(1)),C=P.get('c'),K=P.get('k'),B=(P.get('n')||'https://ntfy.sh').replace(/\/+$/,''),me={},foto='',es=null,PK={name:'ECDH',namedCurve:'P-256'};
 $('est').textContent=P.get('e')||P.get('p')||'FF-KARAOKE';document.title=($('est').textContent)+' · Pedidos de música';
 var SK='ffkc_'+C;
-function getA(){try{return JSON.parse(localStorage.getItem(SK))}catch(e){return null}}
-function setA(a){try{a?localStorage.setItem(SK,JSON.stringify(a)):localStorage.removeItem(SK)}catch(e){}}
+function getA(){try{return JSON.parse(sessionStorage.getItem(SK))}catch(e){return null}}
+function setA(a){try{a?sessionStorage.setItem(SK,JSON.stringify(a)):sessionStorage.removeItem(SK)}catch(e){}}
 function show(n){['s0','s1','s2','s3'].forEach(function(i){$(i).style.display=i===n?'block':'none'})}
 function b64u(buf){var s='',a=new Uint8Array(buf),i;for(i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
 function unb64u(t){t=t.replace(/-/g,'+').replace(/_/g,'/');while(t.length%4)t+='=';var s=atob(t),a=new Uint8Array(s.length),i;for(i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a}
@@ -54,13 +54,13 @@ function render(){
   var a=getA();
   if(!a){show(me.nome?'s2':'s1');return}
   show('s3');
-  if(a.st==='ok'){$('st').textContent=a.pos===0?'É A SUA VEZ!':'PEDIDO CONFIRMADO';$('pos').textContent=a.pos===0?'':(a.pos>0?'Lugar na fila: '+a.pos:'')}
+  if(a.st==='ok'){if(a.pos===0){$('st').textContent='É A SUA VEZ!';$('pos').textContent=''}else{$('st').textContent='PEDIDO CONFIRMADO';$('pos').innerHTML=a.pos>0?'A sua posição na fila: <b>'+(a.pos+1)+'º</b><br>Faltam <b>'+a.pos+'</b> '+(a.pos===1?'cantor':'cantores')+' antes de si':''}}
   else{$('st').textContent='O SEU PEDIDO FOI ENVIADO COM SUCESSO, MAS NEM TODAS AS MÚSICAS EXISTEM EM KARAOKE. AGUARDE PELA CONFIRMAÇÃO.';$('pos').textContent=''}
 }
 function aviso(t){$('aviso').textContent=t}
 function sub(){
   var a=getA();if(!a||!window.EventSource)return;if(es)es.close();
-  es=new EventSource(B+'/'+a.r+'/sse');
+  es=new EventSource(B+'/'+a.r+'/sse?since=all');
   es.addEventListener('message',function(e){try{var d=JSON.parse(e.data);if(d.event==='message')hand(JSON.parse(d.message))}catch(x){}});
 }
 function hand(m){
